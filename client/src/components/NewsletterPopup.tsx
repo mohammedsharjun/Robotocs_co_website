@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { addDoc, collection } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import confetti from 'canvas-confetti';
@@ -20,13 +21,14 @@ export default function NewsletterPopup({
   onClose: externalOnClose, 
   onSubscribeSuccess,
   autoShow = true,
-  delay = 70000
+  delay = 60000
 }: NewsletterPopupProps) {
   const [internalIsOpen, setInternalIsOpen] = useState(false);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const location = useLocation();
 
   // Determine if popup should be open
   const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
@@ -39,18 +41,19 @@ export default function NewsletterPopup({
     console.log('delay:', delay);
     
     if (autoShow) {
-      // Check if popup has already been shown in this session
-      const hasShownPopup = sessionStorage.getItem('newsletterPopupShown');
-      console.log('Has shown popup before:', hasShownPopup);
+      // Check if popup has already been shown on this specific page
+      const popupKey = `newsletterPopupShown_${location.pathname}`;
+      const hasShownPopup = sessionStorage.getItem(popupKey);
+      console.log('Has shown popup before on', location.pathname, ':', hasShownPopup);
       
       if (!hasShownPopup) {
         console.log(`Setting timer for ${delay}ms (${delay/1000} seconds)...`);
-        // Show popup after specified delay (default 70 seconds)
+        // Show popup after specified delay (default 60 seconds)
         const timer = setTimeout(() => {
           console.log('Timer completed! Showing popup...');
           setInternalIsOpen(true);
-          // Mark as shown in session storage
-          sessionStorage.setItem('newsletterPopupShown', 'true');
+          // Mark as shown for this specific page in session storage
+          sessionStorage.setItem(popupKey, 'true');
         }, delay);
 
         return () => {
@@ -58,10 +61,10 @@ export default function NewsletterPopup({
           clearTimeout(timer);
         };
       } else {
-        console.log('Popup already shown this session');
+        console.log('Popup already shown on this page');
       }
     }
-  }, [autoShow, delay]);
+  }, [autoShow, delay, location.pathname]);
 
   // Debug state changes
   useEffect(() => {
