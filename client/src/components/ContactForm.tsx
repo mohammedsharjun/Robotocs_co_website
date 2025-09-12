@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { submitContactForm } from '../lib/firebase';
+import { useState, useEffect } from 'react';
+import { submitContactForm, testFirebaseConnection } from '../lib/firebase';
 import type { ContactFormData } from '../lib/firebase';
 
 interface ContactFormProps {
@@ -19,6 +19,17 @@ export default function ContactForm({ source, className = '', variant = 'default
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Test Firebase connection on component mount
+  useEffect(() => {
+    const testConnection = async () => {
+      const result = await testFirebaseConnection();
+      if (!result.success) {
+        console.error('⚠️ Firebase connection test failed on ContactForm mount:', result.error);
+      }
+    };
+    testConnection();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -66,8 +77,10 @@ export default function ContactForm({ source, className = '', variant = 'default
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+        console.log('📝 Contact form submission started', { source, variant });
     
     if (!validateForm()) {
+      console.log('❌ Form validation failed');
       return;
     }
 
@@ -85,12 +98,23 @@ export default function ContactForm({ source, className = '', variant = 'default
         source: source
       };
 
+      console.log('📤 Submitting contact data to Firebase:', { 
+        name: contactData.name,
+        email: contactData.email,
+        source: contactData.source,
+        messageLength: contactData.message.length
+      });
+
       const result = await submitContactForm(contactData);
       
+      console.log('🔄 Firebase submission result:', result);
+      
       if (result.error) {
+        console.error('❌ Firebase submission error:', result.error);
         setSubmitStatus('error');
-        setErrorMessage(result.error);
+        setErrorMessage(`Firebase Error: ${result.error}`);
       } else {
+        console.log('✅ Contact form submitted successfully with ID:', result.id);
         setSubmitStatus('success');
         // Reset form
         setFormData({
@@ -106,10 +130,17 @@ export default function ContactForm({ source, className = '', variant = 'default
         }, 5000);
       }
     } catch (error: any) {
+      console.error('💥 Unexpected error during contact form submission:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
       setSubmitStatus('error');
-      setErrorMessage(error.message || 'An unexpected error occurred');
+      setErrorMessage(`Submission Error: ${error.message || 'An unexpected error occurred'}`);
     } finally {
       setIsSubmitting(false);
+      console.log('🏁 Contact form submission completed');
     }
   };
 
