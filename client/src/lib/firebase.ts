@@ -37,19 +37,29 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
+console.log('🔥 Firebase: Initializing Firebase app...');
 const app = initializeApp(firebaseConfig);
+console.log('🔥 Firebase: App initialized successfully');
+
 let analytics: ReturnType<typeof getAnalytics> | undefined = undefined;
 if (typeof window !== "undefined") {
   try {
     analytics = getAnalytics(app);
+    console.log('🔥 Firebase: Analytics initialized successfully');
   } catch (e) {
-    // Ignore analytics errors in unsupported environments
+    console.warn('🔥 Firebase: Analytics initialization failed (this is usually okay):', e);
   }
 }
+
 const auth = getAuth(app);
+console.log('🔥 Firebase: Auth initialized');
+
 const db = getFirestore(app);
+console.log('🔥 Firebase: Firestore initialized');
+
 // const storage = getStorage(app);
 const googleProvider = new GoogleAuthProvider();
+console.log('🔥 Firebase: All services initialized successfully');
 
 // Contact form interface
 export interface ContactFormData {
@@ -124,14 +134,43 @@ export const onAuthStateChange = (callback: (user: User | null) => void) => {
 // Firestore functions for contact forms
 export const submitContactForm = async (formData: ContactFormData) => {
   try {
-    const docRef = await addDoc(collection(db, "contactSubmissions"), {
+    console.log('🔥 Firebase: Starting contact form submission to Firestore');
+    console.log('🔥 Firebase: Database instance:', db ? 'initialized' : 'not initialized');
+    console.log('🔥 Firebase: Form data:', {
+      name: formData.name,
+      email: formData.email,
+      source: formData.source,
+      hasMessage: !!formData.message
+    });
+
+    const submissionData = {
       ...formData,
       timestamp: serverTimestamp(),
       createdAt: new Date().toISOString(),
-    });
+    };
+
+    console.log('🔥 Firebase: Attempting to add document to contactSubmissions collection');
+    
+    const docRef = await addDoc(collection(db, "contactSubmissions"), submissionData);
+    
+    console.log('🔥 Firebase: Document successfully written with ID:', docRef.id);
     return { id: docRef.id, error: null };
   } catch (error: any) {
-    return { id: null, error: error.message };
+    console.error('🔥 Firebase: Error submitting contact form:', error);
+    console.error('🔥 Firebase: Error details:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      stack: error.stack
+    });
+    
+    // Return more specific error information
+    let errorMessage = error.message;
+    if (error.code) {
+      errorMessage = `${error.code}: ${error.message}`;
+    }
+    
+    return { id: null, error: errorMessage };
   }
 };
 
@@ -243,6 +282,31 @@ export const submitServiceEnquiryWithFile = async (formData: EnquiryFormData, fi
     return { id: docRef.id, error: null };
   } catch (error: any) {
     return { id: null, error: error.message };
+  }
+};
+
+// Test Firebase connection
+export const testFirebaseConnection = async () => {
+  try {
+    console.log('🔥 Firebase: Testing connection...');
+    
+    // Test Firestore connection by trying to get a non-existent document
+    const testDoc = await getDocs(query(collection(db, "contactSubmissions"), limit(1)));
+    
+    console.log('🔥 Firebase: Connection test successful! Firestore is accessible.');
+    console.log('🔥 Firebase: Found', testDoc.size, 'existing contact submissions');
+    
+    return { success: true, error: null };
+  } catch (error: any) {
+    console.error('🔥 Firebase: Connection test failed:', error);
+    
+    if (error.code === 'permission-denied') {
+      console.error('🔥 Firebase: Permission denied - check Firestore security rules');
+    } else if (error.code === 'unavailable') {
+      console.error('🔥 Firebase: Firestore is currently unavailable');
+    }
+    
+    return { success: false, error: error.message };
   }
 };
 
